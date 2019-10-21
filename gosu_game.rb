@@ -5,57 +5,82 @@ module ZOrder
 end
 
 class Player
-  attr_reader :score
-  
-  def initialize
-    @image = Gosu::Image.new("media/starfighter.bmp")
-    @beep = Gosu::Sample.new("media/beep.wav")
-    @x = @y = @vel_x = @vel_y = @angle = 0.0
-    @score = 0
-  end
-  
-  def warp(x, y)
-    @x, @y = x, y
-  end
-  
-  def turn_left
-    @angle -= 4.5
-  end
-  
-  def turn_right
-    @angle += 4.5
-  end
-  
-  def accelerate
-    @vel_x += Gosu.offset_x(@angle, 0.5)
-    @vel_y += Gosu.offset_y(@angle, 0.5)
-  end
-  
-  def move
-    @x += @vel_x
-    @y += @vel_y
-    @x %= 640
-    @y %= 480
+    attr_reader :score, :lives
     
-    @vel_x *= 0.95
-    @vel_y *= 0.95
-  end
-  
-  def draw
-    @image.draw_rot(@x, @y, ZOrder::PLAYER, @angle)
-  end
-  
-  def collect_stars(stars)
-    stars.reject! do |star|
-      if Gosu.distance(@x, @y, star.x, star.y) < 35
-        @score += 10
-        @beep.play
-        true
-      else
-        false
-      end
+    def initialize
+        @lives = 3
+        @image = Gosu::Image.new("media/starfighter.bmp")
+        @beep = Gosu::Sample.new("media/beep.wav")
+        @x = @y = @vel_x = @vel_y = @angle = 0.0
+        @score = 0
     end
-  end
+
+    def warp(x, y)
+        @x , @y = x, y
+    end
+
+    def turn_left
+        @angle -= 4.5
+    end
+  
+    def turn_right
+        @angle += 4.5
+    end
+  
+    def accelerate
+        @vel_x += Gosu.offset_x(@angle, 0.5)
+        @vel_y += Gosu.offset_y(@angle, 0.5)
+    end
+  
+    def move
+        @x += @vel_x
+        @y += @vel_y
+        @x %= 640
+        @y %= 480
+
+        @vel_x *= 0.95
+        @vel_y *= 0.95
+    end
+  
+    def draw
+        @image.draw_rot(@x, @y, ZOrder::PLAYER, @angle)
+    end
+
+    def hit_stancins(stancins)
+        stancins.reject! do |stancin|
+            if Gosu.distance(@x, @y, stancin.x, stancin.y) < 40
+                @lives -= 1
+                true
+            else
+                false
+            end
+        end
+    end
+    def collect_stars(stars)
+        stars.reject! do |star|
+            if Gosu.distance(@x, @y, star.x, star.y) < 35
+                @score += 10
+                @beep.play
+                true
+            else
+                false
+            end
+        end
+    end
+end
+class Stancin
+    attr_reader :x, :y
+    def initialize
+        @x = rand * 640
+        @y = rand * 480
+        @image = Gosu::Image.new("media/stancin.jpg")
+        @fx = 50.0/@image.width
+        @fy = 50.0/(@image.height)
+        
+    end
+    def draw
+        @image.draw(@x, @y, ZOrder::STARS,@fx, @fy)
+    end
 end
 
 class Star
@@ -78,7 +103,7 @@ class Star
   end
 end
 
-class Tutorial < (Example rescue Gosu::Window)
+class Tutorial < (Gosu::Window)
   def initialize
     super 640, 480
     self.caption = "Tutorial Game"
@@ -90,8 +115,10 @@ class Tutorial < (Example rescue Gosu::Window)
     
     @star_anim = Gosu::Image::load_tiles("media/star.png", 25, 25)
     @stars = Array.new
+    @stancins = Array.new
     
     @font = Gosu::Font.new(20)
+    @big_font = Gosu::Font.new(100)
   end
   
   def update
@@ -106,9 +133,14 @@ class Tutorial < (Example rescue Gosu::Window)
     end
     @player.move
     @player.collect_stars(@stars)
-    
+    @player.hit_stancins(@stancins)
+    if rand(100) < 4 and @stancins.size < 3
+        @stancins.push(Stancin.new)
+    end
     if rand(100) < 4 and @stars.size < 25
       @stars.push(Star.new(@star_anim))
+    end
+    if @player.lives <= 0
     end
   end
   
@@ -116,7 +148,11 @@ class Tutorial < (Example rescue Gosu::Window)
     @background_image.draw(0, 0, ZOrder::BACKGROUND)
     @player.draw
     @stars.each { |star| star.draw }
+    @stancins.each {|stancin| stancin.draw}
+    @font.draw_text("Lives: #{@player.lives}", 500, 10, ZOrder::UI, 1.0, 1.0, Gosu::Color::YELLOW)
     @font.draw_text("Score: #{@player.score}", 10, 10, ZOrder::UI, 1.0, 1.0, Gosu::Color::YELLOW)
+    @big_font.draw_text("YOU LOST", 640 / 4, 480 / 2, ZOrder::UI, 1.0, 1.0, Gosu::Color::RED) if @player.lives <= 0
+
   end
   
   def button_down(id)
